@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/getkin/kin-openapi/openapi2"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
 
@@ -81,24 +82,32 @@ func getParameter(reg map[reflect.Type]interface{}, in reflect.Type) (*openapi2.
 	param.Name = in.Name()
 	param.Schema = v
 
-	// param.Description = v.Value.Description
-	// param.Required = len(v.Value.Required) > 0
-	// param.UniqueItems = v.Value.UniqueItems
-	// param.ExclusiveMin = v.Value.ExclusiveMin
-	// param.ExclusiveMax = v.Value.ExclusiveMax
-	// param.Type = v.Value.Type
-	// param.Format = v.Value.Format
-	// param.Enum = v.Value.Enum
+	param.Description = v.Value.Description
+	param.Required = len(v.Value.Required) > 0
+	param.UniqueItems = v.Value.UniqueItems
+	param.ExclusiveMin = v.Value.ExclusiveMin
+	param.ExclusiveMax = v.Value.ExclusiveMax
+	param.Type = v.Value.Type
+	param.Format = v.Value.Format
+	param.Enum = v.Value.Enum
 
 	// // openapi3?
 	// param.Min = v.Value.Min
 	// param.Max = v.Value.Max
 
-	// param.MaxLength = v.Value.MaxLength
-	// param.MinLength = v.Value.MinLength
-	// param.Pattern = v.Value.Pattern
+	param.MaxLength = v.Value.MaxLength
+	param.MinLength = v.Value.MinLength
+	param.Pattern = v.Value.Pattern
 
+	storeSchemaTypeInstance(gen, in, param.Schema)
 	return param, nil
+}
+
+func storeSchemaTypeInstance(gen *openapi3gen.Generator, t reflect.Type, r *openapi3.SchemaRef) {
+	if gen.Types == nil {
+		gen.Types = make(map[reflect.Type]*openapi3.SchemaRef)
+	}
+	gen.Types[t] = r
 }
 
 func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *openapi2.Response, error) {
@@ -133,6 +142,7 @@ func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *o
 		"0": ex,
 	}
 
+	storeSchemaTypeInstance(gen, out, res.Schema)
 	return s, res, nil
 }
 
@@ -157,8 +167,22 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 
 		method := apiT.Method(i)
 
-		// FIXME check other interface methods too
-		if method.Name == "IOExamplesRegistry" {
+		reservedMethods := []string{}
+		r := reflect.TypeOf(struct{ Swaggerer }{})
+		nr := r.NumMethod()
+		for n := 0; n < nr; n++ {
+			m := r.Method(n).Name
+			reservedMethods = append(reservedMethods, m)
+		}
+		isReserved := func(n string) bool {
+			for _, v := range reservedMethods {
+				if n == v {
+					return true
+				}
+			}
+			return false
+		}
+		if isReserved(method.Name) {
 			continue
 		}
 
@@ -211,6 +235,24 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 			}
 		}
 		swag.AddOperation(mr.Path, mr.Method, oper)
+	}
+
+	// add definitions
+	if swag.Definitions == nil {
+		swag.Definitions = make(map[string]*openapi3.SchemaRef)
+	}
+	for k := range paramsReg {
+		r, ok := gen.Types[k]
+		if ok {
+			swag.Definitions[r.Ref] = r
+		} else {
+			rr, err := gen.GenerateSchemaRef(k)
+			if err != nil {
+				return swag, err
+			}
+			r = rr
+			swag.Definitions[rr.Ref] = rr
+		}
 	}
 
 	return swag, nil
