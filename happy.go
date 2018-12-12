@@ -146,6 +146,26 @@ func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *o
 	return s, res, nil
 }
 
+func swaggererOwns(methodName string) bool {
+	// skip Swaggerer interface's own methods
+	reservedMethods := []string{}
+	r := reflect.TypeOf(struct{ Swaggerer }{})
+	nr := r.NumMethod()
+	for n := 0; n < nr; n++ {
+		m := r.Method(n).Name
+		reservedMethods = append(reservedMethods, m)
+	}
+	isReserved := func(n string) bool {
+		for _, v := range reservedMethods {
+			if n == v {
+				return true
+			}
+		}
+		return false
+	}
+	return isReserved(methodName) && methodName != "Swagger"
+}
+
 // Swagger generates a Swagger OpenAPIv2 scheme.
 func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 
@@ -167,22 +187,8 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 
 		method := apiT.Method(i)
 
-		reservedMethods := []string{}
-		r := reflect.TypeOf(struct{ Swaggerer }{})
-		nr := r.NumMethod()
-		for n := 0; n < nr; n++ {
-			m := r.Method(n).Name
-			reservedMethods = append(reservedMethods, m)
-		}
-		isReserved := func(n string) bool {
-			for _, v := range reservedMethods {
-				if n == v {
-					return true
-				}
-			}
-			return false
-		}
-		if isReserved(method.Name) {
+		// skip Swaggerer interface's own methods
+		if swaggererOwns(method.Name) {
 			continue
 		}
 
@@ -241,9 +247,31 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 	if swag.Definitions == nil {
 		swag.Definitions = make(map[string]*openapi3.SchemaRef)
 	}
+
+	// for k := range paramsReg {
+	// 	_, ok := gen.Types[k]
+	// 	if ok {
+	// 		tt := jsonschema.ReflectFromType(k)
+	// 		// get first
+	// 		d := ""
+	// 		for l := range tt.Definitions {
+	// 			d = l
+	// 			break
+	// 		}
+	// 		rr, err := gen.GenerateSchemaRef(reflect.TypeOf(tt.Definitions[d]))
+	// 		if err != nil {
+	// 			return swag, err
+	// 		}
+	// 		swag.Definitions[d] = rr
+	// 	} else {
+	// 	}
+	// }
+
 	for k := range paramsReg {
 		r, ok := gen.Types[k]
 		if ok {
+			// s := jsonschema.ReflectFromType(r)
+			// s.Definitions
 			swag.Definitions[r.Ref] = r
 		} else {
 			rr, err := gen.GenerateSchemaRef(k)

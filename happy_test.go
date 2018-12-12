@@ -47,7 +47,7 @@ func (api *APIT) IODefaultMethod() string {
 }
 
 func (api *APIT) IODefaultPath(methodName string) string {
-	return "happy/" + methodName
+	return "happy/test/api/default/" + methodName
 }
 
 // NOTE: the registry could alternatively use strings (Type Names) as keys for loosey goosey legibility
@@ -63,7 +63,7 @@ func (api *APIT) IOParamsRegistry() map[reflect.Type]interface{} {
 
 func (api *APIT) IOMethodsRegistry() map[string]*MethodReg {
 	return map[string]*MethodReg{
-		"BlockHeaderAsString": &MethodReg{"POST", "postBHaS"},
+		"BlockHeaderAsString": &MethodReg{"POST", "other/happy/test/api/path/postBHaS"},
 		// leave BlockToHeader nil on purpose
 	}
 }
