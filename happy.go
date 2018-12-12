@@ -2,7 +2,6 @@ package happyapi
 
 import (
 	"errors"
-	"log"
 	"reflect"
 
 	"github.com/getkin/kin-openapi/openapi2"
@@ -198,7 +197,6 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 		}
 
 		methodNumIn := method.Type.NumIn()
-		// log.Println("method=", method.Name, "num inputs=", methodNumIn, "variadic?=", method.Type.IsVariadic())
 
 		oper.Parameters = openapi2.Parameters{} // init
 	PARAMSLOOP:
@@ -220,13 +218,11 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 
 		// get responses out
 		methodNumOut := method.Type.NumOut()
-		// log.Println("method=", method.Name, "num outputs=", methodNumOut)
 
 		oper.Responses = make(map[string]*openapi2.Response)
 	RETURNSLOOP:
 		for k := 0; k < methodNumOut; k++ {
 			out := method.Type.Out(k)
-			// log.Println("out=", k, "out.name=", out.Name(), "out.string=", out.String())
 			s, res, err := getResponse(paramsReg, out)
 			if err == errEmptyType {
 				continue RETURNSLOOP
@@ -240,21 +236,11 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 			}
 			oper.Responses[s] = res
 
+			// TODO handle struct descriptions better
 			switch reflect.TypeOf(k).Kind() {
 			case reflect.Struct:
-				// v := (out)(reflect.ValueOf(paramsReg[out]))
-				// v := (paramsReg[out]).(out)
-				// for k, v := range paramsReg {
-				// get this KEY (is the TYPE)
-				// }
-
-				// sss := jsonschema.ReflectFromType(out)
-				// b, _ := json.Marshal(sss)
-				// log.Println("def", string(b))
 				saveSchemaDefinition(swag, gen, paramsReg[out])
-
 			default:
-				log.Println("else kind", reflect.TypeOf(out))
 				saveSchemaDefinition(swag, gen, paramsReg[out])
 			}
 		}
