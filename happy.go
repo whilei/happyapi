@@ -99,7 +99,6 @@ func getParameter(reg map[reflect.Type]interface{}, in reflect.Type) (*openapi2.
 	param.MinLength = v.Value.MinLength
 	param.Pattern = v.Value.Pattern
 
-	storeSchemaTypeInstance(gen, in, param.Schema)
 	return param, nil
 }
 
@@ -108,6 +107,16 @@ func storeSchemaTypeInstance(gen *openapi3gen.Generator, t reflect.Type, r *open
 		gen.Types = make(map[reflect.Type]*openapi3.SchemaRef)
 	}
 	gen.Types[t] = r
+}
+
+func saveSchemaDefinition(swag *openapi2.Swagger, gen *openapi3gen.Generator, i interface{}) {
+	toi := reflect.TypeOf(i)
+	s, err := gen.GenerateSchemaRef(toi)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	swag.Definitions[reflect.TypeOf(i).Name()] = s
 }
 
 func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *openapi2.Response, error) {
@@ -142,12 +151,10 @@ func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *o
 		"0": ex,
 	}
 
-	storeSchemaTypeInstance(gen, out, res.Schema)
 	return s, res, nil
 }
 
 func swaggererOwns(methodName string) bool {
-	// skip Swaggerer interface's own methods
 	reservedMethods := []string{}
 	r := reflect.TypeOf(struct{ Swaggerer }{})
 	nr := r.NumMethod()
@@ -163,21 +170,19 @@ func swaggererOwns(methodName string) bool {
 		}
 		return false
 	}
-	return isReserved(methodName) && methodName != "Swagger"
+	return isReserved(methodName) || methodName == "Swagger"
 }
 
 // Swagger generates a Swagger OpenAPIv2 scheme.
 func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
-
 	if gen == nil {
 		gen = openapi3gen.NewGenerator()
 	}
 
 	swag := defaultOrIncomingSwagger(sw.InitSwagger())
+	swag.Definitions = make(map[string]*openapi3.SchemaRef)
 
-	// get the registry from the interface method
 	paramsReg := sw.IOParamsRegistry()
-
 	methodsReg := sw.IOMethodsRegistry()
 
 	apiT := reflect.TypeOf(sw)
@@ -193,8 +198,9 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 		}
 
 		methodNumIn := method.Type.NumIn()
-		log.Println("method=", method.Name, "num inputs=", methodNumIn, "variadic?=", method.Type.IsVariadic())
+		// log.Println("method=", method.Name, "num inputs=", methodNumIn, "variadic?=", method.Type.IsVariadic())
 
+		oper.Parameters = openapi2.Parameters{} // init
 	PARAMSLOOP:
 		for j := 0; j < methodNumIn; j++ {
 			// get arguments in
@@ -209,16 +215,18 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 			}
 
 			oper.Parameters = append(oper.Parameters, p)
+			saveSchemaDefinition(swag, gen, paramsReg[in])
 		}
 
 		// get responses out
 		methodNumOut := method.Type.NumOut()
-		log.Println("method=", method.Name, "num outputs=", methodNumOut)
+		// log.Println("method=", method.Name, "num outputs=", methodNumOut)
 
+		oper.Responses = make(map[string]*openapi2.Response)
 	RETURNSLOOP:
 		for k := 0; k < methodNumOut; k++ {
 			out := method.Type.Out(k)
-			log.Println("out=", k, "out.name=", out.Name(), "out.string=", out.String())
+			// log.Println("out=", k, "out.name=", out.Name(), "out.string=", out.String())
 			s, res, err := getResponse(paramsReg, out)
 			if err == errEmptyType {
 				continue RETURNSLOOP
@@ -231,6 +239,24 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 				oper.Responses = make(map[string]*openapi2.Response)
 			}
 			oper.Responses[s] = res
+
+			switch reflect.TypeOf(k).Kind() {
+			case reflect.Struct:
+				// v := (out)(reflect.ValueOf(paramsReg[out]))
+				// v := (paramsReg[out]).(out)
+				// for k, v := range paramsReg {
+				// get this KEY (is the TYPE)
+				// }
+
+				// sss := jsonschema.ReflectFromType(out)
+				// b, _ := json.Marshal(sss)
+				// log.Println("def", string(b))
+				saveSchemaDefinition(swag, gen, paramsReg[out])
+
+			default:
+				log.Println("else kind", reflect.TypeOf(out))
+				saveSchemaDefinition(swag, gen, paramsReg[out])
+			}
 		}
 
 		mr, ok := methodsReg[method.Name]
@@ -242,46 +268,5 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 		}
 		swag.AddOperation(mr.Path, mr.Method, oper)
 	}
-
-	// add definitions
-	if swag.Definitions == nil {
-		swag.Definitions = make(map[string]*openapi3.SchemaRef)
-	}
-
-	// for k := range paramsReg {
-	// 	_, ok := gen.Types[k]
-	// 	if ok {
-	// 		tt := jsonschema.ReflectFromType(k)
-	// 		// get first
-	// 		d := ""
-	// 		for l := range tt.Definitions {
-	// 			d = l
-	// 			break
-	// 		}
-	// 		rr, err := gen.GenerateSchemaRef(reflect.TypeOf(tt.Definitions[d]))
-	// 		if err != nil {
-	// 			return swag, err
-	// 		}
-	// 		swag.Definitions[d] = rr
-	// 	} else {
-	// 	}
-	// }
-
-	for k := range paramsReg {
-		r, ok := gen.Types[k]
-		if ok {
-			// s := jsonschema.ReflectFromType(r)
-			// s.Definitions
-			swag.Definitions[r.Ref] = r
-		} else {
-			rr, err := gen.GenerateSchemaRef(k)
-			if err != nil {
-				return swag, err
-			}
-			r = rr
-			swag.Definitions[rr.Ref] = rr
-		}
-	}
-
 	return swag, nil
 }
