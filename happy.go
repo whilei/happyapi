@@ -173,7 +173,7 @@ func swaggererOwns(methodName string) bool {
 }
 
 // Swagger generates a Swagger OpenAPIv2 scheme.
-func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
+func Swagger(sw Swaggerer, service interface{}) (*openapi2.Swagger, error) {
 	if gen == nil {
 		gen = openapi3gen.NewGenerator()
 	}
@@ -184,7 +184,7 @@ func Swagger(sw Swaggerer) (*openapi2.Swagger, error) {
 	paramsReg := sw.IOParamsRegistry()
 	methodsReg := sw.IOMethodsRegistry()
 
-	apiT := reflect.TypeOf(sw)
+	apiT := reflect.TypeOf(service)
 	for i := 0; i < apiT.NumMethod(); i++ {
 
 		oper := &openapi2.Operation{}
