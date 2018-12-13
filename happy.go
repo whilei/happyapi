@@ -26,16 +26,6 @@ type MethodReg struct {
 }
 
 type Swaggerer interface {
-
-	// InitSwagger allows optional (can call with nil), inits http://localhost:6060/pkg/github.com/getkin/kin-openapi/openapi2/#Swagger, and allows the API to configure base values conforming to the spec.
-	// InitSwagger() *openapi2.Swagger
-
-	// // IODefaultMethod returns a default method in case
-	// IODefaultMethod() string // eg. get OR post
-
-	// // IODefaultPath receives the name of the Method, and should return the full desired path
-	// IODefaultPath(string) string
-
 	// IOParamsRegistry eg. types.Block :: types.Block{42, "0xdeadbeef", time.Now()}
 	IOParamsRegistry() map[reflect.Type]interface{}
 
@@ -45,7 +35,7 @@ type Swaggerer interface {
 	IOMethodsRegistry() map[string]*MethodReg
 }
 
-func defaultOrIncomingSwagger(in *openapi2.Swagger) *openapi2.Swagger {
+func mustSwagger(in *openapi2.Swagger) *openapi2.Swagger {
 	if in == nil {
 		return &openapi2.Swagger{}
 	}
@@ -181,7 +171,7 @@ func Swagger(sw Swaggerer, swag *openapi2.Swagger, service interface{}, defaultM
 	// TODO: either use a separate funciton for creation of an swagger and then one for appending to an existing one,
 	// or establish an Swagger :registered: as a third parameter and check for nil, initing if nil and
 	// appending if not.
-	// swag := defaultOrIncomingSwagger(swagIn)
+	// swag := mustSwagger(swagIn)
 	if swag.Definitions == nil {
 		swag.Definitions = make(map[string]*openapi3.SchemaRef)
 	}
