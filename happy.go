@@ -131,10 +131,13 @@ func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *o
 		return s, res, nil, err
 	}
 
+	if v == nil {
+		v, _ = gen.GenerateSchemaRef(reflect.TypeOf(ex))
+	}
+
 	v.Value.Example = ex
 
-	res.Content = openapi3.NewContentWithJSONSchemaRef(v)
-	res.Description = v.Value.Description
+	res = res.WithJSONSchemaRef(v).WithDescription(v.Value.Description)
 
 	return s, res, nil, nil
 }
@@ -227,7 +230,9 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 
 			oper.AddParameter(p)
 
-			swag.Components.Schemas[p.Name] = p.Schema
+			if p != nil && p.Schema != nil {
+				swag.Components.Schemas[p.Name] = p.Schema
+			}
 
 			// saveSchemaDefinition(swag, gen, paramsReg[in])
 		}
@@ -262,7 +267,9 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 
 			oper.AddResponse(200, res)
 
-			swag.Components.Schemas[s] = sr
+			if sr != nil && sr.Value != nil {
+				swag.Components.Schemas[s] = sr
+			}
 
 			// TODO handle struct descriptions better
 			// switch reflect.TypeOf(k).Kind() {
