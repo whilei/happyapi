@@ -171,7 +171,7 @@ func Swagger(sw Swaggerer, swag *openapi2.Swagger, service interface{}, defaultM
 	// TODO: either use a separate funciton for creation of an swagger and then one for appending to an existing one,
 	// or establish an Swagger :registered: as a third parameter and check for nil, initing if nil and
 	// appending if not.
-	// swag := mustSwagger(swagIn)
+	swag = mustSwagger(swag)
 	if swag.Definitions == nil {
 		swag.Definitions = make(map[string]*openapi3.SchemaRef)
 	}
