@@ -28,7 +28,7 @@ type MethodReg struct {
 type Swaggerer interface {
 
 	// InitSwagger allows optional (can call with nil), inits http://localhost:6060/pkg/github.com/getkin/kin-openapi/openapi2/#Swagger, and allows the API to configure base values conforming to the spec.
-	InitSwagger() *openapi2.Swagger
+	// InitSwagger() *openapi2.Swagger
 
 	// IODefaultMethod returns a default method in case
 	IODefaultMethod() string // eg. get OR post
@@ -173,13 +173,27 @@ func swaggererOwns(methodName string) bool {
 }
 
 // Swagger generates a Swagger OpenAPIv2 scheme.
-func Swagger(sw Swaggerer, service interface{}) (*openapi2.Swagger, error) {
+func Swagger(sw Swaggerer, swag *openapi2.Swagger, service interface{}) (*openapi2.Swagger, error) {
 	if gen == nil {
 		gen = openapi3gen.NewGenerator()
 	}
 
-	swag := defaultOrIncomingSwagger(sw.InitSwagger())
-	swag.Definitions = make(map[string]*openapi3.SchemaRef)
+	// TODO: either use a separate funciton for creation of an swagger and then one for appending to an existing one,
+	// or establish an Swagger :registered: as a third parameter and check for nil, initing if nil and
+	// appending if not.
+	// swag := defaultOrIncomingSwagger(swagIn)
+	if swag.Definitions == nil {
+		swag.Definitions = make(map[string]*openapi3.SchemaRef)
+	}
+
+	// if service is a slice, iterate the below under the same swag var
+
+	// NOTES: TypeOf(y).IsVariadic
+	// TODO: maybe not, see above instead
+	serviceK := reflect.TypeOf(service).Kind()
+	if serviceK == reflect.Slice {
+
+	}
 
 	paramsReg := sw.IOParamsRegistry()
 	methodsReg := sw.IOMethodsRegistry()
