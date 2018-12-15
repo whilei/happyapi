@@ -2,8 +2,10 @@ package happyapi
 
 import (
 	"errors"
+	"log"
 	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
 )
@@ -106,6 +108,16 @@ func storeSchemaTypeInstance(gen *openapi3gen.Generator, t reflect.Type, r *open
 // 	swag.Definitions[reflect.TypeOf(i).Name()] = s
 // }
 
+// Implements this type the error interface
+var errorType = reflect.TypeOf((*error)(nil)).Elem()
+
+func isErrorType(t reflect.Type) bool {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.Implements(errorType)
+}
+
 func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *openapi3.Response, *openapi3.SchemaRef, error) {
 	// TODO: understand me
 	s := out.Name()
@@ -116,13 +128,16 @@ func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *o
 	res := &openapi3.Response{}
 
 	ex, ok := reg[out]
+	// var isError bool
 	if !ok {
+		log.Println(spew.Sdump(reg))
+		log.Println("want", out)
 		return s, nil, nil, ErrNotRegistered
 	}
 
 	// return an error if a method
 	switch out.Kind() {
-	case reflect.Func, reflect.Interface:
+	case reflect.Func:
 		return s, nil, nil, ErrNotSupported
 	}
 
@@ -139,7 +154,7 @@ func getResponse(reg map[reflect.Type]interface{}, out reflect.Type) (string, *o
 
 	res = res.WithJSONSchemaRef(v).WithDescription(v.Value.Description)
 
-	return s, res, nil, nil
+	return s, res, v.Value.NewRef(), nil
 }
 
 func swaggererOwns(methodName string) bool {
@@ -215,7 +230,8 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 			if err == errEmptyType {
 				continue PARAMSLOOP
 			} else if err == ErrNotRegistered {
-				continue PARAMSLOOP
+				panic("ernoreg params:" + in.String())
+				// continue PARAMSLOOP
 			} else if err != nil {
 				return swag, err
 			}
@@ -251,7 +267,8 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 			if err == errEmptyType {
 				continue RETURNSLOOP
 			} else if err == ErrNotRegistered {
-				continue RETURNSLOOP
+				panic("ernoreg results:" + out.String())
+				// continue RETURNSLOOP
 			} else if err != nil {
 				return swag, err
 			}
@@ -267,8 +284,12 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 
 			oper.AddResponse(200, res)
 
-			if sr != nil && sr.Value != nil {
-				swag.Components.Schemas[s] = sr
+			// swag.Components.
+			// if sr != nil && sr.Value != nil {
+			swag.Components.Schemas[s] = sr
+			// }
+			if isErrorType(out) {
+				// swag.Components.Schemas["error"] =
 			}
 
 			// TODO handle struct descriptions better
