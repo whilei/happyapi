@@ -230,8 +230,8 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 			if err == errEmptyType {
 				continue PARAMSLOOP
 			} else if err == ErrNotRegistered {
-				panic("ernoreg params:" + in.String())
-				// continue PARAMSLOOP
+				// panic("ernoreg params:" + in.String())
+				continue PARAMSLOOP
 			} else if err != nil {
 				return swag, err
 			}
@@ -267,8 +267,8 @@ func Swagger(sw Swaggerer, swag *openapi3.Swagger, service interface{}, defaultM
 			if err == errEmptyType {
 				continue RETURNSLOOP
 			} else if err == ErrNotRegistered {
-				panic("ernoreg results:" + out.String())
-				// continue RETURNSLOOP
+				// panic("ernoreg results:" + out.String())
+				continue RETURNSLOOP
 			} else if err != nil {
 				return swag, err
 			}
